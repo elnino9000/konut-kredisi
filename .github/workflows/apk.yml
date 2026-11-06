@@ -1,0 +1,27 @@
+name: APK olustur
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Dosyalari yerlestir
+        run: |
+          if [ -f main.dart ]; then mkdir -p lib && mv main.dart lib/main.dart; fi
+          flutter create --platforms=android --project-name konut_kredisi --org com.konutkredisi .
+          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' android/app/src/main/AndroidManifest.xml
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: konut-kredisi-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
