@@ -115,7 +115,7 @@ class KrediApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Konut Kredisi Hesabı',
+      title: 'Konut Kredi Hesaplama',
       debugShowCheckedModeBanner: false,
       theme: _tema(),
       darkTheme: _tema(),
@@ -360,6 +360,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
   void _degisti() {
     setState(() {});
     _kaydet();
+    _yenile.value++;
   }
 
   // ----- Temel değerler -----
@@ -915,33 +916,193 @@ class _AnaSayfaState extends State<AnaSayfa> {
 
   String _isaretli(double v) => '${v >= 0 ? '+' : '-'}${tlSade(v.abs())}';
 
-  Widget _kiraKarti() {
+  // ----- Sade ekran -----
+
+  final ValueNotifier<int> _yenile = ValueNotifier<int>(0);
+
+  Widget _zemin(Widget cocuk) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF1A2050), kArka],
+          stops: [0.0, 0.4],
+        ),
+      ),
+      child: cocuk,
+    );
+  }
+
+  EdgeInsets _bosluk() => EdgeInsets.fromLTRB(
+      16, MediaQuery.of(context).padding.top + kToolbarHeight + 4, 16, 40);
+
+  void _sayfa(String baslik, List<Widget> Function() icerik) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (ctx) => Scaffold(
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(title: Text(baslik)),
+        body: _zemin(
+          ValueListenableBuilder<int>(
+            valueListenable: _yenile,
+            builder: (c2, _, __) => ListView(
+              padding: EdgeInsets.fromLTRB(
+                  16,
+                  MediaQuery.of(c2).padding.top + kToolbarHeight + 4,
+                  16,
+                  40),
+              children: icerik(),
+            ),
+          ),
+        ),
+      ),
+    ));
+  }
+
+  int? _basabas(double t, int ay) {
+    for (int m = 1; m <= ay; m++) {
+      if (kiraAy(m) >= t) return m;
+    }
+    return null;
+  }
+
+  Widget _ana() {
+    final oran = maxKrediOrani(fiyat, sinif);
+    final maxKredi = fiyat * oran;
+    final paraYetmiyor = pesinat < 0;
+    final krediFazla = kredi > maxKredi + 0.5;
+    final uygun = !paraYetmiyor && !krediFazla;
+    final t = taksitHesapla(kredi, aylikFaiz, kiraVade);
+    final fark = kira - t;
+    final basabas = _basabas(t, kiraVade);
+    const beyaz = Colors.white;
+
+    String mesaj;
+    if (paraYetmiyor) {
+      mesaj = 'Paranız masrafları karşılamıyor. Ev fiyatını düşürün veya para ekleyin.';
+    } else if (krediFazla) {
+      mesaj =
+          'Bu evde bu kadar kredi çıkmaz. En az ${tl((kredi - maxKredi) * (1 - kTahsisOrani))} daha nakit gerekir.';
+    } else if (fark >= 0) {
+      mesaj = 'Kira taksidi karşılıyor. Her ay ${tl(fark)} cebinizde kalır.';
+    } else if (basabas != null) {
+      mesaj =
+          'İlk ay cebinizden ${tl(-fark)} çıkar. Kira zamlarıyla $basabas. ayda taksidi geçer.';
+    } else {
+      mesaj = 'Her ay cebinizden ${tl(-fark)} çıkar. Bu vadede kira taksidi geçmez.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: uygun ? kGradyan : kGradyanKotu,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: (uygun ? kYesil : kKirmizi).withOpacity(0.25),
+            blurRadius: 30,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('AYLIK TAKSİT  •  $kiraVade AY',
+              style: TextStyle(
+                  fontSize: 12,
+                  letterSpacing: 1.3,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withOpacity(0.85))),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(tl(t),
+                style: const TextStyle(
+                    fontSize: 44,
+                    fontWeight: FontWeight.w800,
+                    color: beyaz,
+                    height: 1.1)),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _ozetKutu('Kredi', tl(kredi))),
+              const SizedBox(width: 10),
+              Expanded(child: _ozetKutu('Kira', tl(kira))),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(mesaj,
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: beyaz,
+                  height: 1.35)),
+        ],
+      ),
+    );
+  }
+
+  Widget _ozetKutu(String e, String d) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.22),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(e,
+              style: TextStyle(
+                  fontSize: 12, color: Colors.white.withOpacity(0.8))),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(d,
+                style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _vadeSecici() {
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (final v in kVadeler)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text('$v ay'),
+                selected: kiraVade == v,
+                onSelected: (_) {
+                  kiraVade = v;
+                  _degisti();
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _yilTablosu() {
     final ay = kiraVade;
     final t = taksitHesapla(kredi, aylikFaiz, ay);
     final yil = (ay / 12).ceil();
-    int? basabas;
-    for (int m = 1; m <= ay; m++) {
-      if (kiraAy(m) >= t) {
-        basabas = m;
-        break;
-      }
-    }
-    double toplamKira = 0;
-    for (int m = 1; m <= ay; m++) {
-      toplamKira += kiraAy(m);
-    }
-    final toplamTaksit = t * ay;
-    final net = toplamKira - toplamTaksit;
-    final ilkFark = kira - t;
-
-    final yilSatirlari = <TableRow>[];
-    double birikim = 0;
+    final satirlar = <TableRow>[];
     for (int y = 0; y < yil; y++) {
-      final aySayisi = min(12, ay - 12 * y);
       final k = kiraAy(12 * y + 1);
-      final fark = (k - t) * aySayisi;
-      birikim += fark;
-      yilSatirlari.add(TableRow(
+      satirlar.add(TableRow(
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: kKenar.withOpacity(0.6))),
         ),
@@ -951,392 +1112,265 @@ class _AnaSayfaState extends State<AnaSayfa> {
           _hucre(tlSade(t)),
           _hucre(_isaretli(k - t),
               kalin: true, renk: k - t >= 0 ? kYesil : kKirmizi),
-          _hucre(_isaretli(birikim),
-              renk: birikim >= 0 ? kYesil : kKehribar),
         ],
       ));
     }
-
-    final vadeSatirlari = <TableRow>[];
-    for (final v in kVadeler) {
-      final tv = taksitHesapla(kredi, aylikFaiz, v);
-      final oran = tv > 0 ? kira / tv * 100 : 0.0;
-      vadeSatirlari.add(TableRow(
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: kKenar.withOpacity(0.6))),
-        ),
-        children: [
-          _hucre('$v ay', sola: true, kalin: true),
-          _hucre(tlSade(tv)),
-          _hucre(_isaretli(kira - tv),
-              kalin: true, renk: kira - tv >= 0 ? kYesil : kKirmizi),
-          _hucre(yuzde(oran, 0),
-              renk: oran >= 100 ? kYesil : (oran >= 70 ? kKehribar : kKirmizi)),
-        ],
-      ));
-    }
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Kira taksidi karşılıyor mu?',
+            const Text('Yıl yıl aylık durum',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text('Vadeyi seçin, yıl yıl tabloyu görün.',
-                style: TextStyle(fontSize: 12, color: kSoluk)),
+            Text(
+                'Kira her yıl ${yuzde(kiraArtis * 100, 1)} artar, taksit sabit kalır (TL).',
+                style: const TextStyle(fontSize: 12, color: kSoluk)),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final v in kVadeler)
-                  ChoiceChip(
-                    label: Text('$v ay'),
-                    selected: kiraVade == v,
-                    onSelected: (_) => setState(() => kiraVade = v),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                _mini('İlk ay (kira − taksit)', '${_isaretli(ilkFark)} TL',
-                    ilkFark >= 0 ? kYesil : kKirmizi),
-                const SizedBox(width: 8),
-                _mini(
-                    'Kira taksidi geçer',
-                    basabas == null
-                        ? 'Geçmez'
-                        : (basabas == 1 ? 'İlk aydan' : '$basabas. ay'),
-                    basabas == null ? kKirmizi : kMavi),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _mini('$ay ayda toplam kira', tl(toplamKira), kMavi),
-                const SizedBox(width: 8),
-                _mini('Toplam taksit', tl(toplamTaksit), kKehribar),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _mini(
-                    net >= 0
-                        ? 'Kira, taksitten fazla'
-                        : 'Cebinizden çıkacak',
-                    tl(net.abs()),
-                    net >= 0 ? kYesil : kKirmizi),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text('Yıl yıl: aylık kira ve taksit (TL)',
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            _tablo(
-              ['Yıl', 'Kira/ay', 'Taksit/ay', 'Fark/ay', 'Birikim'],
-              yilSatirlari,
-              genislik: [1.1, 1.3, 1.3, 1.3, 1.5],
-            ),
-            const SizedBox(height: 6),
-            const Text(
-                'Fark = kira − taksit. Yeşil: kira taksidi karşılıyor. Birikim: o yıl sonuna kadar cebinize giren veya çıkan toplam.',
-                style: TextStyle(fontSize: 11.5, color: kSoluk, height: 1.35)),
-            const SizedBox(height: 18),
-            const Text('Hangi vadede kira ne kadarını karşılar?',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            _tablo(
-              ['Vade', 'Taksit', 'İlk ay fark', 'Karşılama'],
-              vadeSatirlari,
-              genislik: [1, 1.4, 1.5, 1.2],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-                'Hesapta kira her yıl artış oranı kadar artar, taksit sabit kalır. Boş kalma, aidat, emlak vergisi ve kira gelirinden ödenecek gelir vergisi dahil değildir; gerçekte net kira biraz daha düşük olur. Kiracıya yasal artış sınırı, önceki 12 ayın TÜFE ortalamasıdır.',
-                style: TextStyle(fontSize: 11.5, color: kSoluk, height: 1.35)),
+            _tablo(['Yıl', 'Kira', 'Taksit', 'Fark'], satirlar,
+                genislik: [1.1, 1.3, 1.3, 1.3]),
           ],
         ),
       ),
     );
   }
 
-  Widget _vadeler() {
-    final gelir = paraOku(c['gelir']!.text);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Vadelere göre ödeme',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text(
-                'Gerçek maliyet: banka masrafları dahil yıllık maliyet. Enflasyondan arındırılmış: yıllık ${yuzde(yillikEnf)} enflasyon sürerse kalan gerçek maliyet. Ay ay plan için satıra dokunun.',
-                style: const TextStyle(fontSize: 12, color: kSoluk),
-              ),
-            ),
-            for (int i = 0; i < kVadeler.length; i++) ...[
-              if (i > 0)
-                const Divider(height: 1, indent: 16, endIndent: 16),
-              _vadeSatiri(kVadeler[i], gelir),
+  Widget _menu(IconData ikon, String baslik, String alt, VoidCallback f) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: kMavi.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(ikon, color: const Color(0xFF9CC2FF), size: 22),
+      ),
+      title: Text(baslik,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      subtitle:
+          Text(alt, style: const TextStyle(fontSize: 12.5, color: kSoluk)),
+      trailing: const Icon(Icons.chevron_right, color: kSoluk),
+      onTap: f,
+    );
+  }
+
+  List<Widget> _masrafSayfasi() => [
+        _masrafKarti(),
+      ];
+
+  List<Widget> _vadeSayfasi() {
+    final satirlar = <TableRow>[];
+    for (final v in kVadeler) {
+      final tv = taksitHesapla(kredi, aylikFaiz, v);
+      final gm = yillikBilesik(aylikGercekMaliyet(kredi - krediMasrafi, tv, v));
+      final f = kira - tv;
+      satirlar.add(TableRow(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: kKenar.withOpacity(0.6))),
+        ),
+        children: [
+          _hucre('$v ay', sola: true, kalin: true),
+          _hucre(tlSade(tv)),
+          _hucre(_isaretli(f), kalin: true, renk: f >= 0 ? kYesil : kKirmizi),
+          _hucre(tlSade(tv * v)),
+          _hucre(yuzde(gm * 100, 0)),
+        ],
+      ));
+    }
+    return [
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Vadeleri karşılaştır',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              const Text(
+                  'Fark: ilk ay kira eksi taksit. Yıllık maliyet: banka masrafları dahil yıllık faiz.',
+                  style: TextStyle(fontSize: 12, color: kSoluk)),
+              const SizedBox(height: 10),
+              _tablo(['Vade', 'Taksit', 'Fark', 'Toplam', 'Yıllık'], satirlar,
+                  genislik: [1, 1.3, 1.3, 1.5, 1]),
             ],
-          ],
+          ),
         ),
       ),
-    );
+    ];
   }
 
-  Widget _vadeSatiri(int ay, double gelir) {
-    final r = aylikFaiz;
-    final t = taksitHesapla(kredi, r, ay);
-    final toplam = t * ay;
-    double bugun = 0;
-    for (int k = 1; k <= ay; k++) {
-      bugun += t / pow(1 + aylikEnf, k);
-    }
-    final gercekAylik = aylikGercekMaliyet(kredi - krediMasrafi, t, ay);
-    final gercekYillik = yillikBilesik(gercekAylik);
-    final reel = (1 + gercekYillik) / (1 + yillikEnf / 100) - 1;
-
-    String? gelirNotu;
-    Color? gelirRenk;
-    if (gelir > 0) {
-      final o = t / gelir * 100;
-      gelirNotu = 'Taksit gelirin ${yuzde(o, 0)} kadarı';
-      gelirRenk = o > 50 ? kKirmizi : (o > 35 ? kKehribar : kYesil);
-    }
-    const kucuk = TextStyle(fontSize: 12, color: kSoluk);
-    return InkWell(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => OdemePlani(
-            kredi: kredi,
-            aylikFaiz: r,
-            aylikEnf: aylikEnf,
-            ay: ay,
-            kira: kira,
-            kiraArtis: kiraArtis),
-      )),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 56,
-              margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: kMavi.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                children: [
-                  Text('$ay',
-                      style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF9CC2FF))),
-                  const Text('ay',
-                      style: TextStyle(fontSize: 11, color: kSoluk)),
-                ],
-              ),
+  List<Widget> _ayarSayfasi() {
+    final yillikNominal = yillikBilesik(aylikFaiz) * 100;
+    return [
+      _baslik('Faiz'),
+      _kucukNot(
+          'Kaynak: $faizKaynagi. Bu oran yıllık bileşik ${yuzde(yillikNominal, 1)} demektir.'),
+      const SizedBox(height: 10),
+      _teklifKarti(),
+      const SizedBox(height: 10),
+      const Text('Faiz değişirse ne olur?', style: TextStyle(color: kSoluk)),
+      const SizedBox(height: 6),
+      Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          for (final d in const [-0.5, -0.25, 0.0, 0.25, 0.5])
+            ChoiceChip(
+              label: Text(d == 0
+                  ? 'Seçili faiz'
+                  : '${d > 0 ? '+' : ''}${d.toString().replaceAll('.', ',')} puan'),
+              selected: senaryo == d,
+              onSelected: (_) {
+                senaryo = d;
+                _degisti();
+              },
             ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${tl(t)} / ay',
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w800)),
-                  Text('Toplam ${tl(toplam)}, faiz ${tl(toplam - kredi)}',
-                      style: kucuk),
-                  Text('Bugünkü parayla ${tl(bugun)}', style: kucuk),
-                  Text(
-                      'İlk ay kira taksidin ${yuzde(t > 0 ? kira / t * 100 : 0, 0)} kadarını karşılar',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: kira >= t ? kYesil : kKehribar)),
-                  Text(
-                      'Gerçek maliyet yıllık ${yuzde(gercekYillik * 100, 1)}, enflasyondan arındırılmış ${yuzde(reel * 100, 1)}',
-                      style: kucuk),
-                  if (gelirNotu != null)
-                    Text(gelirNotu,
-                        style: TextStyle(color: gelirRenk, fontSize: 12)),
-                ],
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(top: 14),
-              child: Icon(Icons.chevron_right, color: kSoluk),
-            ),
-          ],
-        ),
+        ],
       ),
-    );
+      _baslik('Enflasyon ve kira artışı'),
+      _alan('enflasyon', 'Yıllık enflasyon (%)'),
+      _kucukNot(enfNotu),
+      _alan('kiraArtis', 'Yıllık kira artışı (%)',
+          ipucu: 'Yasal sınır: önceki 12 ayın TÜFE ortalaması'),
+      _baslik('Ev'),
+      const Text('Enerji kimlik belgesindeki sınıf',
+          style: TextStyle(color: kSoluk)),
+      const SizedBox(height: 6),
+      SegmentedButton<int>(
+        segments: const [
+          ButtonSegment(value: 0, label: Text('A–B')),
+          ButtonSegment(value: 1, label: Text('C')),
+          ButtonSegment(value: 2, label: Text('D ve altı')),
+        ],
+        selected: {sinif},
+        onSelectionChanged: (x) {
+          sinif = x.first;
+          _degisti();
+        },
+      ),
+      _baslik('Masraflar'),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: tapuTamami,
+        title: const Text('Tapu harcının tamamını ben ödüyorum'),
+        subtitle: const Text('Açıksa %4, kapalıysa yasal payınız %2'),
+        onChanged: (v) {
+          tapuTamami = v;
+          _degisti();
+        },
+      ),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: emlakci,
+        title: const Text('Emlakçı aracılığıyla alıyorum'),
+        subtitle: const Text('Yasal üst sınır: satış bedelinin %2’si + KDV'),
+        onChanged: (v) {
+          emlakci = v;
+          _degisti();
+        },
+      ),
+      if (emlakci)
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: emlakTamami,
+          title: const Text('Komisyonun tamamını ben ödüyorum'),
+          subtitle: const Text('Yazılı anlaşmayla %4 + KDV alıcıya kalabilir'),
+          onChanged: (v) {
+            emlakTamami = v;
+            _degisti();
+          },
+        ),
+      _alan('ekspertiz', 'Ekspertiz / bilirkişi raporu (TL)'),
+      _alan('doner', 'Tapu döner sermaye (TL)'),
+      _alan('banka', 'İpotek ve diğer banka masrafları (TL)'),
+      _alan('sigorta', 'Sigortalar, ilk yıl (TL)'),
+      _baslik('Güncel veri'),
+      FilledButton.icon(
+        onPressed: _veriCek,
+        icon: const Icon(Icons.cloud_download_outlined),
+        label: const Text('Merkez Bankası’ndan faiz ve enflasyonu çek'),
+      ),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: _ayarlar,
+        icon: const Icon(Icons.key_outlined),
+        label: const Text('Bağlantı ayarları (API anahtarı)'),
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
-    final yillikNominal = yillikBilesik(aylikFaiz) * 100;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Konut Kredisi'),
+        title: const Text('Konut Kredi Hesaplama',
+            style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.cloud_download_outlined),
-            tooltip: 'Merkez Bankası verisini çek',
-            onPressed: _veriCek,
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Bağlantı ayarları',
-            onPressed: _ayarlar,
+            icon: const Icon(Icons.tune),
+            tooltip: 'Ayarlar',
+            onPressed: () => _sayfa('Ayarlar', _ayarSayfasi),
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A2050), kArka],
-            stops: [0.0, 0.4],
-          ),
-        ),
-        child: ListView(
-        padding: EdgeInsets.fromLTRB(
-            16, MediaQuery.of(context).padding.top + kToolbarHeight + 4, 16, 40),
-        children: [
-          _ozet(),
-          _baslik('Paranız ve ev'),
-          _alan('para', 'Elinizdeki toplam para (TL)',
-              ipucu: 'Masraflar önce bundan düşülür, kalanı peşinat olur'),
-          _alan('fiyat', 'Ev fiyatı (TL)'),
-          const SizedBox(height: 6),
-          const Text('Enerji kimlik belgesindeki sınıf',
-              style: TextStyle(color: kSoluk)),
-          const SizedBox(height: 6),
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 0, label: Text('A–B')),
-              ButtonSegment(value: 1, label: Text('C')),
-              ButtonSegment(value: 2, label: Text('D ve altı')),
-            ],
-            selected: {sinif},
-            onSelectionChanged: (s) {
-              sinif = s.first;
-              _degisti();
-            },
-          ),
-          _baslik('Faiz'),
-          _alan('faiz', 'Aylık faiz (%)'),
-          _kucukNot(
-              'Kaynak: $faizKaynagi. Bu oran yıllık bileşik ${yuzde(yillikNominal, 1)} demektir.'),
-          const SizedBox(height: 10),
-          _teklifKarti(),
-          const SizedBox(height: 10),
-          const Text('Faiz değişirse ne olur?',
-              style: TextStyle(color: kSoluk)),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final d in const [-0.5, -0.25, 0.0, 0.25, 0.5])
-                ChoiceChip(
-                  label: Text(d == 0
-                      ? 'Seçili faiz'
-                      : '${d > 0 ? '+' : ''}${d.toString().replaceAll('.', ',')} puan'),
-                  selected: senaryo == d,
-                  onSelected: (_) => setState(() => senaryo = d),
-                ),
-            ],
-          ),
-          _baslik('Enflasyon'),
-          _alan('enflasyon', 'Yıllık enflasyon (%)'),
-          _kucukNot(enfNotu),
-          _baslik('Masraflar'),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: tapuTamami,
-            title: const Text('Tapu harcının tamamını ben ödüyorum'),
-            subtitle: const Text('Açıksa %4, kapalıysa yasal payınız %2'),
-            onChanged: (v) {
-              tapuTamami = v;
-              _degisti();
-            },
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: emlakci,
-            title: const Text('Emlakçı aracılığıyla alıyorum'),
-            subtitle: const Text('Yasal üst sınır: satış bedelinin %2’si + KDV'),
-            onChanged: (v) {
-              emlakci = v;
-              _degisti();
-            },
-          ),
-          if (emlakci)
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: emlakTamami,
-              title: const Text('Komisyonun tamamını ben ödüyorum'),
-              subtitle:
-                  const Text('Yazılı anlaşmayla %4 + KDV alıcıya kalabilir'),
-              onChanged: (v) {
-                emlakTamami = v;
-                _degisti();
-              },
+      body: _zemin(
+        ListView(
+          padding: _bosluk(),
+          children: [
+            _alan('para', 'Elinizdeki para (TL)'),
+            _alan('fiyat', 'Ev fiyatı (TL)'),
+            Row(
+              children: [
+                Expanded(child: _alan('kira', 'Aylık kira (TL)')),
+                const SizedBox(width: 10),
+                Expanded(child: _alan('faiz', 'Aylık faiz (%)')),
+              ],
             ),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text('Tahmini masrafları düzenle'),
-            children: [
-              _alan('ekspertiz', 'Ekspertiz / bilirkişi raporu (TL)',
-                  ipucu: '2026 ortalaması yaklaşık 21.000 TL'),
-              _alan('doner', 'Tapu döner sermaye (TL)',
-                  ipucu: '2026 tarifesi 2.534 TL'),
-              _alan('banka', 'İpotek ve diğer banka masrafları (TL)',
-                  ipucu: 'Kabaca tahmin; bankanın bilgi formundan düzeltin'),
-              _alan('sigorta', 'Sigortalar, ilk yıl (TL)',
-                  ipucu:
-                      'DASK zorunlu; banka genelde konut ve hayat sigortası da ister. Teklif alınca girin.'),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _masrafKarti(),
-          _baslik('Kira geliri'),
-          _alan('kira', 'Evi kiraya verirseniz aylık kira (TL)',
-              ipucu: 'Bölgedeki benzer dairelerin güncel kirasına bakın'),
-          _alan('kiraArtis', 'Yıllık kira artışı (%)',
-              ipucu:
-                  'Her yıl bu oranda artar. Merkez Bankası verisi çekilince enflasyonla aynı yapılır'),
-          const SizedBox(height: 8),
-          _kiraKarti(),
-          _baslik('Gelir'),
-          _alan('gelir', 'Aylık net gelir (TL)',
-              ipucu: 'İsteğe bağlı; taksitin gelire oranını gösterir'),
-          const SizedBox(height: 8),
-          _vadeler(),
-          const SizedBox(height: 16),
-          Text(
-            'Bu uygulama bilgi amaçlı bir hesaplama aracıdır. Kesin rakamlar için bankanın ödeme planını ve sözleşme öncesi bilgi formunu esas alın.',
-            style: const TextStyle(fontSize: 12, color: kSoluk),
-          ),
-        ],
-      ),
+            const SizedBox(height: 6),
+            _vadeSecici(),
+            const SizedBox(height: 16),
+            _ana(),
+            const SizedBox(height: 16),
+            _yilTablosu(),
+            const SizedBox(height: 16),
+            Card(
+              child: Column(
+                children: [
+                  _menu(Icons.receipt_long_outlined, 'Masraflar',
+                      'Tapu, ekspertiz, tahsis ücreti',
+                      () => _sayfa('Masraflar', _masrafSayfasi)),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _menu(Icons.compare_arrows, 'Vadeleri karşılaştır',
+                      '12 aydan 120 aya taksit ve maliyet',
+                      () => _sayfa('Vadeler', _vadeSayfasi)),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _menu(Icons.table_chart_outlined, 'Ay ay ödeme planı',
+                      'Seçili vade: $kiraVade ay', () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => OdemePlani(
+                          kredi: kredi,
+                          aylikFaiz: aylikFaiz,
+                          aylikEnf: aylikEnf,
+                          ay: kiraVade,
+                          kira: kira,
+                          kiraArtis: kiraArtis),
+                    ));
+                  }),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Bilgi amaçlı hesaplamadır. Kesin rakamlar için bankanın ödeme planını esas alın. Kira geliri üzerindeki vergi, boş kalma ve aidat hesaba katılmamıştır.',
+              style: TextStyle(fontSize: 11.5, color: kSoluk, height: 1.35),
+            ),
+          ],
+        ),
       ),
     );
   }
