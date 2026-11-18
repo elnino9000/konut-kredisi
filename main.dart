@@ -7,13 +7,107 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const KrediApp());
 
-const kYesil = Color(0xFF2F6B5B);
-const kKehribar = Color(0xFFB7791F);
-const kKirmizi = Color(0xFFB3403A);
+const kArka = Color(0xFF0A0E1F);
+const kYuzey = Color(0xFF151A33);
+const kYuzey2 = Color(0xFF1E2550);
+const kKenar = Color(0xFF2A3160);
+const kYesil = Color(0xFF2EE6A6);
+const kMavi = Color(0xFF3D8BFF);
+const kKehribar = Color(0xFFFFB84D);
+const kKirmizi = Color(0xFFFF5C6C);
+const kSoluk = Color(0xFF8E96C7);
+const kGradyan = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF0FA97A), Color(0xFF3D6BFF)],
+);
+const kGradyanKotu = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFFE0455A), Color(0xFF8E2DE2)],
+);
 const kVadeler = [12, 24, 36, 48, 60, 72, 84, 96, 108, 120];
 const kEvdsAdres = 'https://evds3.tcmb.gov.tr/igmevdsms-dis/';
 const kTahsisOrani = 0.005; // kredi tahsis ücreti üst sınırı: binde 5
 const kKdv = 0.20;
+
+ThemeData _tema() {
+  final cs = ColorScheme.fromSeed(seedColor: kMavi, brightness: Brightness.dark);
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: cs,
+    scaffoldBackgroundColor: kArka,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+      titleTextStyle: TextStyle(
+          fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white),
+    ),
+    cardTheme: CardThemeData(
+      color: kYuzey,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(26),
+        side: const BorderSide(color: kKenar),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: kYuzey2,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: kMavi, width: 1.5),
+      ),
+      labelStyle: const TextStyle(color: kSoluk),
+      helperStyle: const TextStyle(color: kSoluk),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: kYuzey,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: kYuzey2,
+      selectedColor: kMavi.withOpacity(0.35),
+      side: const BorderSide(color: kKenar),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith((st) =>
+            st.contains(WidgetState.selected) ? kMavi.withOpacity(0.35) : kYuzey2),
+        side: const WidgetStatePropertyAll(BorderSide(color: kKenar)),
+      ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: const WidgetStatePropertyAll(Colors.white),
+      trackColor: WidgetStateProperty.resolveWith((st) =>
+          st.contains(WidgetState.selected) ? kYesil : kKenar),
+      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+    ),
+    dividerTheme: const DividerThemeData(color: kKenar),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: kMavi,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: kYuzey2,
+      contentTextStyle: const TextStyle(color: Colors.white),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+  );
+}
 
 class KrediApp extends StatelessWidget {
   const KrediApp({super.key});
@@ -23,17 +117,9 @@ class KrediApp extends StatelessWidget {
     return MaterialApp(
       title: 'Konut Kredisi Hesabı',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: kYesil),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: kYesil,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: _tema(),
+      darkTheme: _tema(),
+      themeMode: ThemeMode.dark,
       home: const AnaSayfa(),
     );
   }
@@ -484,13 +570,28 @@ class _AnaSayfaState extends State<AnaSayfa> {
 
   Widget _baslik(String metin) {
     return Padding(
-      padding: const EdgeInsets.only(top: 22, bottom: 4),
-      child: Text(
-        metin,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w700,
+      padding: const EdgeInsets.only(top: 28, bottom: 8, left: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              gradient: kGradyan,
+              borderRadius: BorderRadius.circular(4),
             ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            metin.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 13,
+              letterSpacing: 1.1,
+              fontWeight: FontWeight.w700,
+              color: kSoluk,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -505,7 +606,6 @@ class _AnaSayfaState extends State<AnaSayfa> {
           labelText: etiket,
           helperText: ipucu,
           helperMaxLines: 2,
-          border: const OutlineInputBorder(),
         ),
         onChanged: (_) => _degisti(),
       ),
@@ -528,7 +628,8 @@ class _AnaSayfaState extends State<AnaSayfa> {
 
   Widget _kucukNot(String metin) => Padding(
         padding: const EdgeInsets.only(top: 6),
-        child: Text(metin, style: Theme.of(context).textTheme.bodySmall),
+        child: Text(metin,
+            style: const TextStyle(fontSize: 12, color: kSoluk, height: 1.35)),
       );
 
   Widget _ozet() {
@@ -537,7 +638,6 @@ class _AnaSayfaState extends State<AnaSayfa> {
     final paraYetmiyor = pesinat < 0;
     final krediFazla = kredi > maxKredi + 0.5;
     final uygun = !paraYetmiyor && !krediFazla;
-    final renk = uygun ? kYesil : kKirmizi;
     final enYuksek =
         enYuksekFiyat(para, sinif, sabitMasraf, tapuOrani, emlakOrani);
 
@@ -549,45 +649,114 @@ class _AnaSayfaState extends State<AnaSayfa> {
     } else {
       durum = 'Bu planla ev alınabilir';
     }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    const beyaz = Colors.white;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: uygun ? kGradyan : kGradyanKotu,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: (uygun ? kYesil : kKirmizi).withOpacity(0.25),
+            blurRadius: 30,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(uygun ? Icons.check_circle : Icons.error, color: renk),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    durum,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: renk, fontWeight: FontWeight.w700),
-                  ),
+                Icon(uygun ? Icons.check_circle : Icons.error,
+                    color: beyaz, size: 18),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(durum,
+                      style: const TextStyle(
+                          color: beyaz,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            _satir('Elinizdeki para', tl(para)),
-            _satir('Masraflara giden', tl(toplamMasraf)),
-            _satir('Peşinata kalan', tl(pesinat)),
-            _satir('Çekilecek kredi', tl(kredi), kalin: true),
-            _satir('Kredi / ev değeri',
-                yuzde(fiyat > 0 ? kredi / fiyat * 100 : 0, 1)),
-            _satir('Bu enerji sınıfında en fazla',
-                '${yuzde(oran * 100, 0)} = ${tl(maxKredi)}'),
-            if (krediFazla)
-              _satir('Gereken ek nakit', tl((kredi - maxKredi) * (1 - kTahsisOrani)),
-                  kalin: true, renk: kKirmizi),
-            const Divider(height: 20),
-            _satir('Bu parayla alınabilecek en pahalı ev', tl(enYuksek),
-                kalin: true),
-            _kucukNot(
-                'Kredi oranı satış fiyatına değil ekspertizin biçtiği değere uygulanır (BDDK 29.01.2026 kararı). Ev sahibi olanlarda oranlar daha düşüktür.'),
-          ],
-        ),
+          ),
+          const SizedBox(height: 18),
+          Text('ÇEKİLECEK KREDİ',
+              style: TextStyle(
+                  fontSize: 12,
+                  letterSpacing: 1.3,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withOpacity(0.8))),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(tl(kredi),
+                style: const TextStyle(
+                    fontSize: 42,
+                    fontWeight: FontWeight.w800,
+                    color: beyaz,
+                    height: 1.1)),
+          ),
+          const SizedBox(height: 4),
+          Text(
+              'Ev değerinin ${yuzde(fiyat > 0 ? kredi / fiyat * 100 : 0, 1)} kadarı',
+              style: TextStyle(
+                  fontSize: 14, color: Colors.white.withOpacity(0.85))),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.22),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                _satir('Elinizdeki para', tl(para), renk: beyaz),
+                _satir('Masraflara giden', tl(toplamMasraf), renk: beyaz),
+                _satir('Peşinata kalan', tl(pesinat), renk: beyaz, kalin: true),
+                _satir('Bu enerji sınıfında en fazla',
+                    '${yuzde(oran * 100, 0)} = ${tl(maxKredi)}',
+                    renk: beyaz),
+                if (krediFazla)
+                  _satir('Gereken ek nakit',
+                      tl((kredi - maxKredi) * (1 - kTahsisOrani)),
+                      kalin: true, renk: beyaz),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Icon(Icons.home_work_outlined, color: beyaz, size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Bu parayla alınabilecek en pahalı ev',
+                    style: TextStyle(color: beyaz, fontSize: 13)),
+              ),
+              Text(tl(enYuksek),
+                  style: const TextStyle(
+                      color: beyaz,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+              'Kredi oranı satış fiyatına değil ekspertizin biçtiği değere uygulanır (BDDK 29.01.2026 kararı). Ev sahibi olanlarda oranlar daha düşüktür.',
+              style: TextStyle(
+                  fontSize: 11.5,
+                  height: 1.35,
+                  color: Colors.white.withOpacity(0.75))),
+        ],
       ),
     );
   }
@@ -599,8 +768,8 @@ class _AnaSayfaState extends State<AnaSayfa> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Masraf dökümü',
-                style: Theme.of(context).textTheme.titleMedium),
+            const Text('Masraf dökümü',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             _satir('Tapu harcı (${tapuTamami ? '%4' : '%2'})', tl(tapu)),
             _satir('Tapu döner sermaye', tl(doner)),
@@ -624,7 +793,6 @@ class _AnaSayfaState extends State<AnaSayfa> {
   }
 
   Widget _teklifKarti() {
-    final tema = Theme.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -637,7 +805,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
                 children: [
                   Expanded(
                     child: Text('Banka teklifleri',
-                        style: tema.textTheme.titleMedium),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                   ),
                   TextButton.icon(
                     onPressed: _teklifEkle,
@@ -651,7 +819,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                   'Kullanmak için dokunun, silmek için basılı tutun. Bankadan aldığınız kesin teklifi buraya ekleyin.',
-                  style: tema.textTheme.bodySmall),
+                  style: const TextStyle(fontSize: 12, color: kSoluk)),
             ),
             for (final t in teklifler)
               ListTile(
@@ -675,7 +843,6 @@ class _AnaSayfaState extends State<AnaSayfa> {
 
   Widget _vadeler() {
     final gelir = paraOku(c['gelir']!.text);
-    final tema = Theme.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -685,16 +852,20 @@ class _AnaSayfaState extends State<AnaSayfa> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text('Vadelere göre ödeme',
-                  style: tema.textTheme.titleMedium),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Text(
                 'Gerçek maliyet: banka masrafları dahil yıllık maliyet. Enflasyondan arındırılmış: yıllık ${yuzde(yillikEnf)} enflasyon sürerse kalan gerçek maliyet. Ay ay plan için satıra dokunun.',
-                style: tema.textTheme.bodySmall,
+                style: const TextStyle(fontSize: 12, color: kSoluk),
               ),
             ),
-            for (final ay in kVadeler) _vadeSatiri(ay, gelir),
+            for (int i = 0; i < kVadeler.length; i++) ...[
+              if (i > 0)
+                const Divider(height: 1, indent: 16, endIndent: 16),
+              _vadeSatiri(kVadeler[i], gelir),
+            ],
           ],
         ),
       ),
@@ -720,7 +891,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
       gelirNotu = 'Taksit gelirin ${yuzde(o, 0)} kadarı';
       gelirRenk = o > 50 ? kKirmizi : (o > 35 ? kKehribar : kYesil);
     }
-    final kucuk = Theme.of(context).textTheme.bodySmall;
+    const kucuk = TextStyle(fontSize: 12, color: kSoluk);
     return InkWell(
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => OdemePlani(
@@ -731,17 +902,33 @@ class _AnaSayfaState extends State<AnaSayfa> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 64,
-              child: Text('$ay ay',
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            Container(
+              width: 56,
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: kMavi.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                children: [
+                  Text('$ay',
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF9CC2FF))),
+                  const Text('ay',
+                      style: TextStyle(fontSize: 11, color: kSoluk)),
+                ],
+              ),
             ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('${tl(t)} / ay',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w800)),
                   Text('Toplam ${tl(toplam)}, faiz ${tl(toplam - kredi)}',
                       style: kucuk),
                   Text('Bugünkü parayla ${tl(bugun)}', style: kucuk),
@@ -754,7 +941,10 @@ class _AnaSayfaState extends State<AnaSayfa> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right),
+            const Padding(
+              padding: EdgeInsets.only(top: 14),
+              child: Icon(Icons.chevron_right, color: kSoluk),
+            ),
           ],
         ),
       ),
@@ -765,8 +955,9 @@ class _AnaSayfaState extends State<AnaSayfa> {
   Widget build(BuildContext context) {
     final yillikNominal = yillikBilesik(aylikFaiz) * 100;
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Konut Kredisi Hesabı'),
+        title: const Text('Konut Kredisi'),
         actions: [
           IconButton(
             icon: const Icon(Icons.cloud_download_outlined),
@@ -780,15 +971,27 @@ class _AnaSayfaState extends State<AnaSayfa> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1A2050), kArka],
+            stops: [0.0, 0.4],
+          ),
+        ),
+        child: ListView(
+        padding: EdgeInsets.fromLTRB(
+            16, MediaQuery.of(context).padding.top + kToolbarHeight + 4, 16, 40),
         children: [
+          _ozet(),
           _baslik('Paranız ve ev'),
           _alan('para', 'Elinizdeki toplam para (TL)',
               ipucu: 'Masraflar önce bundan düşülür, kalanı peşinat olur'),
           _alan('fiyat', 'Ev fiyatı (TL)'),
           const SizedBox(height: 6),
-          const Text('Enerji kimlik belgesindeki sınıf'),
+          const Text('Enerji kimlik belgesindeki sınıf',
+              style: TextStyle(color: kSoluk)),
           const SizedBox(height: 6),
           SegmentedButton<int>(
             segments: const [
@@ -802,8 +1005,6 @@ class _AnaSayfaState extends State<AnaSayfa> {
               _degisti();
             },
           ),
-          const SizedBox(height: 12),
-          _ozet(),
           _baslik('Faiz'),
           _alan('faiz', 'Aylık faiz (%)'),
           _kucukNot(
@@ -811,7 +1012,8 @@ class _AnaSayfaState extends State<AnaSayfa> {
           const SizedBox(height: 10),
           _teklifKarti(),
           const SizedBox(height: 10),
-          const Text('Faiz değişirse ne olur?'),
+          const Text('Faiz değişirse ne olur?',
+              style: TextStyle(color: kSoluk)),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
@@ -888,9 +1090,10 @@ class _AnaSayfaState extends State<AnaSayfa> {
           const SizedBox(height: 16),
           Text(
             'Bu uygulama bilgi amaçlı bir hesaplama aracıdır. Kesin rakamlar için bankanın ödeme planını ve sözleşme öncesi bilgi formunu esas alın.',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: const TextStyle(fontSize: 12, color: kSoluk),
           ),
         ],
+      ),
       ),
     );
   }
@@ -925,7 +1128,8 @@ class OdemePlani extends StatelessWidget {
           [k.toDouble(), faiz, anapara, kalan, t / pow(1 + aylikEnf, k)]);
     }
     const kucuk = TextStyle(fontSize: 11.5);
-    final baslikStil = kucuk.copyWith(fontWeight: FontWeight.w700);
+    final baslikStil =
+        kucuk.copyWith(fontWeight: FontWeight.w700, color: kSoluk);
 
     Widget hucre(String s, int flex, TextStyle st, {bool sola = false}) =>
         Expanded(
@@ -944,13 +1148,16 @@ class OdemePlani extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Aylık taksit ${tl(t)}',
-                    style: Theme.of(context).textTheme.titleLarge),
+                    style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: kYesil)),
                 const SizedBox(height: 4),
                 Text('Kredi ${tl(kredi)}, toplam ödeme ${tl(t * ay)}'),
                 const SizedBox(height: 8),
                 Text(
                   'Erken kapama: "Kalan borç" tutarına ek olarak, kalan vade 36 aydan uzunsa en fazla %2, kısaysa en fazla %1 erken ödeme tazminatı alınabilir. "Bugünkü değer", o ayki taksitin bugünün parasıyla karşılığıdır.',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: const TextStyle(fontSize: 12, color: kSoluk),
                 ),
               ],
             ),
