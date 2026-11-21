@@ -2,6 +2,8 @@ name: APK olustur
 on:
   push:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,8 +28,18 @@ jobs:
             cp icons/$d.png android/app/src/main/res/mipmap-$d/ic_launcher.png
           done
       - run: flutter pub get
-      - run: flutter build apk --release
+      - run: flutter build apk --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: konut-kredisi-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+      - name: Son surum olarak yayinla
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk konut-kredisi.apk
+          gh release delete son-surum --yes --cleanup-tag || true
+          gh release create son-surum konut-kredisi.apk \
+            --target "$GITHUB_SHA" \
+            --title "Konut Kredisi (son sürüm 1.0.${{ github.run_number }})" \
+            --notes "Telefondan indirip kur: konut-kredisi.apk"
