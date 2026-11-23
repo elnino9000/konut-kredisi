@@ -293,7 +293,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
     'kiraArtis': TextEditingController(text: '29,77'),
   };
   int sinif = 0;
-  bool evVar = true;
+  bool evVar = false;
   bool tapuTamami = true;
   bool emlakci = true;
   bool emlakTamami = false;
@@ -332,7 +332,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
     if (!mounted) return;
     setState(() {
       sinif = p.getInt('sinif') ?? 0;
-      evVar = p.getBool('evVar') ?? true;
+      evVar = p.getBool('evVar') ?? false;
       tapuTamami = p.getBool('tapuTamami') ?? true;
       emlakci = p.getBool('emlakci') ?? true;
       emlakTamami = p.getBool('emlakTamami') ?? false;
@@ -867,7 +867,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
       final enYuksek =
           enYuksekFiyat(para, sinif, sabitMasraf, tapuOrani, emlakOrani, evVar);
       mesaj =
-          'Bu evde en fazla ${tl(maxKredi)} (${yuzde(oran * 100, 1)}) kredi çıkar. En az ${tl((kredi - maxKredi) * (1 - kTahsisOrani))} daha nakit gerekir. Eldeki parayla en fazla ${tl(enYuksek)} değerinde ev alınabilir.';
+          'Bu evde en fazla ${tl(maxKredi)} (${yuzde(oran * 100, 1)}) kredi çıkar. En az ${tl((kredi - maxKredi) * (1 - kTahsisOrani))} daha nakit gerekir. Eldeki parayla en fazla ${tl(enYuksek)} değerinde ev alınabilir.${evVar ? ' Not: “ev sahibi” kuralı açık, kredi oranı %75 daraltıldı. Krediyi çekecek kişinin, eşinin ve 18 yaş altı çocuklarının adına konut yoksa Ayarlar > Ev bölümünden kapatın.' : ''}';
     } else if (fark >= 0) {
       mesaj = 'Kira taksidi karşılıyor. Her ay ${tl(fark)} cebinizde kalır.';
     } else if (basabas != null) {
