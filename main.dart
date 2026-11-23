@@ -146,6 +146,9 @@ String yuzde(double v, [int basamak = 2]) =>
 String oranYaz(double v) => v.toStringAsFixed(2).replaceAll('.', ',');
 
 double paraOku(String s) {
+  // "2600000.50" gibi tek noktalı ve noktadan sonra 1-2 hane varsa ondalık say.
+  final m = RegExp(r'^\s*\d+\.(\d{1,2})\s*$').firstMatch(s);
+  if (m != null) return double.tryParse(s.trim()) ?? 0;
   final t = s
       .replaceAll('.', '')
       .replaceAll(' ', '')
@@ -184,7 +187,10 @@ double yillikBilesik(double aylik) => pow(1 + aylik, 12).toDouble() - 1;
 
 /// BDDK 29.01.2026 kararı: konut değeri ve enerji sınıfına göre
 /// azami kredi / değer oranı. sinif: 0 = A-B, 1 = C, 2 = D ve altı.
-double maxKrediOrani(double deger, int sinif) {
+///
+/// evVar: başvuran, eşi veya 18 yaş altı çocuğu adına en az bir konut varsa
+/// oran %75 daraltılır (BDDK 24.08.2023, 10656 sayılı karar): 0,25 ile çarpılır.
+double maxKrediOrani(double deger, int sinif, [bool evVar = false]) {
   const bantlar = [
     [5000000.0, 0.9, 0.8, 0.7],
     [7000000.0, 0.8, 0.7, 0.6],
@@ -192,19 +198,19 @@ double maxKrediOrani(double deger, int sinif) {
     [20000000.0, 0.5, 0.4, 0.3],
   ];
   for (final b in bantlar) {
-    if (deger <= b[0]) return b[1 + sinif];
+    if (deger <= b[0]) return b[1 + sinif] * (evVar ? 0.25 : 1.0);
   }
-  return const [0.4, 0.3, 0.2][sinif];
+  return const [0.4, 0.3, 0.2][sinif] * (evVar ? 0.25 : 1.0);
 }
 
 /// Eldeki parayla (peşinat + tüm masraflar) alınabilecek en pahalı ev.
 double enYuksekFiyat(double para, int sinif, double sabitMasraf,
-    double tapuOrani, double emlakOrani) {
+    double tapuOrani, double emlakOrani, bool evVar) {
   const sinirlar = [5000000.0, 7000000.0, 10000000.0, 20000000.0, double.infinity];
   double sonuc = 0;
   double alt = 0;
   for (final ust in sinirlar) {
-    final o = maxKrediOrani(alt + 1, sinif);
+    final o = maxKrediOrani(alt + 1, sinif, evVar);
     final f = (para - sabitMasraf) /
         ((1 - o) + tapuOrani + emlakOrani + kTahsisOrani * o);
     if (f <= alt) break;
@@ -279,22 +285,22 @@ class _AnaSayfaState extends State<AnaSayfa> {
     'fiyat': TextEditingController(text: '2.600.000'),
     'faiz': TextEditingController(text: '2,90'),
     'enflasyon': TextEditingController(text: '29,77'),
-    'gelir': TextEditingController(text: ''),
-    'ekspertiz': TextEditingController(text: '21.004'),
+    'ekspertiz': TextEditingController(text: '31.500'),
     'doner': TextEditingController(text: '2.534'),
-    'banka': TextEditingController(text: '5.000'),
+    'banka': TextEditingController(text: '8.350'),
     'sigorta': TextEditingController(text: '0'),
     'kira': TextEditingController(text: '21.000'),
     'kiraArtis': TextEditingController(text: '29,77'),
   };
   int sinif = 0;
+  bool evVar = true;
   bool tapuTamami = true;
   bool emlakci = true;
   bool emlakTamami = false;
   double senaryo = 0;
   int kiraVade = 36;
-  String faizKaynagi = 'Varsayılan (6 Kasım 2026 piyasa ortalaması)';
-  String enfNotu = 'TÜİK Ekim 2026: yıllık %29,77, aylık %2,58';
+  String faizKaynagi = 'Varsayılan örnek değer. Güncel veri için aşağıdan Merkez Bankası’ndan çekin';
+  String enfNotu = 'Varsayılan örnek değer. Güncel veri için aşağıdan Merkez Bankası’ndan çekin';
   List<Teklif> teklifler = [
     Teklif('Kuveyt Türk', 2.87),
     Teklif('Vakıf Katılım', 2.94),
@@ -326,6 +332,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
     if (!mounted) return;
     setState(() {
       sinif = p.getInt('sinif') ?? 0;
+      evVar = p.getBool('evVar') ?? true;
       tapuTamami = p.getBool('tapuTamami') ?? true;
       emlakci = p.getBool('emlakci') ?? true;
       emlakTamami = p.getBool('emlakTamami') ?? false;
@@ -348,6 +355,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
       p.setString('girdi_${e.key}', e.value.text);
     }
     p.setInt('sinif', sinif);
+    p.setBool('evVar', evVar);
     p.setBool('tapuTamami', tapuTamami);
     p.setBool('emlakci', emlakci);
     p.setBool('emlakTamami', emlakTamami);
@@ -617,7 +625,11 @@ class _AnaSayfaState extends State<AnaSayfa> {
           helperText: ipucu,
           helperMaxLines: 2,
         ),
-        onChanged: (_) => _degisti(),
+        onChanged: (_) {
+          if (anahtar == 'faiz') faizKaynagi = 'Elle girdiniz';
+          if (anahtar == 'enflasyon') enfNotu = 'Elle girdiniz';
+          _degisti();
+        },
       ),
     );
   }
@@ -641,135 +653,6 @@ class _AnaSayfaState extends State<AnaSayfa> {
         child: Text(metin,
             style: const TextStyle(fontSize: 12, color: kSoluk, height: 1.35)),
       );
-
-  Widget _ozet() {
-    final oran = maxKrediOrani(fiyat, sinif);
-    final maxKredi = fiyat * oran;
-    final paraYetmiyor = pesinat < 0;
-    final krediFazla = kredi > maxKredi + 0.5;
-    final uygun = !paraYetmiyor && !krediFazla;
-    final enYuksek =
-        enYuksekFiyat(para, sinif, sabitMasraf, tapuOrani, emlakOrani);
-
-    String durum;
-    if (paraYetmiyor) {
-      durum = 'Paranız masrafları karşılamıyor';
-    } else if (krediFazla) {
-      durum = 'Bu evde bu kadar kredi çıkmaz';
-    } else {
-      durum = 'Bu planla ev alınabilir';
-    }
-    const beyaz = Colors.white;
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: uygun ? kGradyan : kGradyanKotu,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: (uygun ? kYesil : kKirmizi).withOpacity(0.25),
-            blurRadius: 30,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(uygun ? Icons.check_circle : Icons.error,
-                    color: beyaz, size: 18),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(durum,
-                      style: const TextStyle(
-                          color: beyaz,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text('ÇEKİLECEK KREDİ',
-              style: TextStyle(
-                  fontSize: 12,
-                  letterSpacing: 1.3,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withOpacity(0.8))),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(tl(kredi),
-                style: const TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.w800,
-                    color: beyaz,
-                    height: 1.1)),
-          ),
-          const SizedBox(height: 4),
-          Text(
-              'Ev değerinin ${yuzde(fiyat > 0 ? kredi / fiyat * 100 : 0, 1)} kadarı',
-              style: TextStyle(
-                  fontSize: 14, color: Colors.white.withOpacity(0.85))),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.22),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                _satir('Elinizdeki para', tl(para), renk: beyaz),
-                _satir('Masraflara giden', tl(toplamMasraf), renk: beyaz),
-                _satir('Peşinata kalan', tl(pesinat), renk: beyaz, kalin: true),
-                _satir('Bu enerji sınıfında en fazla',
-                    '${yuzde(oran * 100, 0)} = ${tl(maxKredi)}',
-                    renk: beyaz),
-                if (krediFazla)
-                  _satir('Gereken ek nakit',
-                      tl((kredi - maxKredi) * (1 - kTahsisOrani)),
-                      kalin: true, renk: beyaz),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const Icon(Icons.home_work_outlined, color: beyaz, size: 20),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text('Bu parayla alınabilecek en pahalı ev',
-                    style: TextStyle(color: beyaz, fontSize: 13)),
-              ),
-              Text(tl(enYuksek),
-                  style: const TextStyle(
-                      color: beyaz,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-              'Kredi oranı satış fiyatına değil ekspertizin biçtiği değere uygulanır (BDDK 29.01.2026 kararı). Ev sahibi olanlarda oranlar daha düşüktür.',
-              style: TextStyle(
-                  fontSize: 11.5,
-                  height: 1.35,
-                  color: Colors.white.withOpacity(0.75))),
-        ],
-      ),
-    );
-  }
 
   Widget _masrafKarti() {
     return Card(
@@ -967,7 +850,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
   }
 
   Widget _ana() {
-    final oran = maxKrediOrani(fiyat, sinif);
+    final oran = maxKrediOrani(fiyat, sinif, evVar);
     final maxKredi = fiyat * oran;
     final paraYetmiyor = pesinat < 0;
     final krediFazla = kredi > maxKredi + 0.5;
@@ -981,8 +864,10 @@ class _AnaSayfaState extends State<AnaSayfa> {
     if (paraYetmiyor) {
       mesaj = 'Paranız masrafları karşılamıyor. Ev fiyatını düşürün veya para ekleyin.';
     } else if (krediFazla) {
+      final enYuksek =
+          enYuksekFiyat(para, sinif, sabitMasraf, tapuOrani, emlakOrani, evVar);
       mesaj =
-          'Bu evde bu kadar kredi çıkmaz. En az ${tl((kredi - maxKredi) * (1 - kTahsisOrani))} daha nakit gerekir.';
+          'Bu evde en fazla ${tl(maxKredi)} (${yuzde(oran * 100, 1)}) kredi çıkar. En az ${tl((kredi - maxKredi) * (1 - kTahsisOrani))} daha nakit gerekir. Eldeki parayla en fazla ${tl(enYuksek)} değerinde ev alınabilir.';
     } else if (fark >= 0) {
       mesaj = 'Kira taksidi karşılıyor. Her ay ${tl(fark)} cebinizde kalır.';
     } else if (basabas != null) {
@@ -1235,7 +1120,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
       _alan('enflasyon', 'Yıllık enflasyon (%)'),
       _kucukNot(enfNotu),
       _alan('kiraArtis', 'Yıllık kira artışı (%)',
-          ipucu: 'Yasal sınır: önceki 12 ayın TÜFE ortalaması'),
+          ipucu: 'Merkez Bankası’ndan çekince yıllık enflasyon yazılır. Yasal sınır önceki 12 ayın TÜFE ortalamasıdır, gerekirse elle düzeltin'),
       _baslik('Ev'),
       const Text('Enerji kimlik belgesindeki sınıf',
           style: TextStyle(color: kSoluk)),
@@ -1249,6 +1134,16 @@ class _AnaSayfaState extends State<AnaSayfa> {
         selected: {sinif},
         onSelectionChanged: (x) {
           sinif = x.first;
+          _degisti();
+        },
+      ),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: evVar,
+        title: const Text('Kredi çekecek kişinin, eşinin veya 18 yaş altı çocuğunun adına kayıtlı konut var'),
+        subtitle: const Text('Varsa kredi oranı %75 daralır (BDDK 2023). İlk ev alıyorsanız kapatın.'),
+        onChanged: (v) {
+          evVar = v;
           _degisti();
         },
       ),
@@ -1286,8 +1181,10 @@ class _AnaSayfaState extends State<AnaSayfa> {
         ),
       _alan('ekspertiz', 'Ekspertiz / bilirkişi raporu (TL)'),
       _alan('doner', 'Tapu döner sermaye (TL)'),
-      _alan('banka', 'İpotek ve diğer banka masrafları (TL)'),
-      _alan('sigorta', 'Sigortalar, ilk yıl (TL)'),
+      _alan('banka', 'İpotek ve diğer banka masrafları (TL)',
+          ipucu: 'Örnek (Ziraat): ipotek 3.600 + paket 3.500 + Ailem Ziraat 1.250'),
+      _alan('sigorta', 'Sigortalar, ilk yıl (TL)',
+          ipucu: 'DASK + hayat + konut sigortası. Örnek (Ziraat, 4 milyon TL kredi): 3.200 + 32.000 + 5.600'),
       _baslik('Güncel veri'),
       FilledButton.icon(
         onPressed: _veriCek,

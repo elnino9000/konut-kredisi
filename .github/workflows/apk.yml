@@ -22,6 +22,10 @@ jobs:
           flutter create --platforms=android --project-name konut_kredisi --org com.konutkredisi .
           sed -i 's#android:label="[^"]*"#android:label="Konut Kredi Hesaplama"#' android/app/src/main/AndroidManifest.xml
           sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' android/app/src/main/AndroidManifest.xml
+      - name: Sabit imza anahtari
+        run: |
+          mkdir -p ~/.android
+          cp imza/debug.keystore ~/.android/debug.keystore
       - name: Uygulama simgesi
         run: |
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
